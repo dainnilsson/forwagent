@@ -9,15 +9,19 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 )
 
 func main() {
-	fingerprint, err := common.ReadFingerprintFile("certs/server.pem")
+	fingerprint, err := common.ReadFingerprintFile(common.GetFilePath("server.pem"))
 	if err != nil {
 		fmt.Println("Error loading server cert:", err.Error())
 		os.Exit(1)
 	}
-	cert, err := tls.LoadX509KeyPair("certs/client.pem", "certs/client.key")
+	cert, err := tls.LoadX509KeyPair(
+		common.GetFilePath("client.pem"),
+		common.GetFilePath("client.key"),
+	)
 	if err != nil {
 		fmt.Println("Error loading cert:", err.Error())
 		os.Exit(1)
@@ -27,8 +31,7 @@ func main() {
 		InsecureSkipVerify: true,
 	}
 
-	path := os.Getenv("HOME") + "/.gnupg/"
-	gpgPath := path + "S.gpg-agent"
+	gpgPath := filepath.Join(common.GetHomePath(), ".gnupg", "S.gpg-agent")
 	os.Remove(gpgPath)
 	gpgSock, err := net.Listen("unix", gpgPath)
 	if err != nil {

@@ -13,20 +13,20 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
 const (
-	host          = "localhost"
-	port          = 4711
-	gpgAssuanFile = "gnupg/S.gpg-agent"
+	host = "localhost"
+	port = 4711
 )
 
 func loadClients() map[[32]byte]bool {
-	fp, err := common.ReadFingerprintFile("certs/client.pem")
+	fp, err := common.ReadFingerprintFile(common.GetFilePath("client.pem"))
 	if err != nil {
 		fmt.Println("Error reading cert fingerprint:", err.Error())
-		return map[[32]byte]bool{}
+		return nil
 	}
 
 	return map[[32]byte]bool{
@@ -48,7 +48,10 @@ func authenticateFps(fingerprints map[[32]byte]bool) func([][]byte, [][]*x509.Ce
 }
 
 func main() {
-	cert, err := tls.LoadX509KeyPair("certs/server.pem", "certs/server.key")
+	cert, err := tls.LoadX509KeyPair(
+		common.GetFilePath("server.pem"),
+		common.GetFilePath("server.key"),
+	)
 	if err != nil {
 		fmt.Println("Error loading cert:", err.Error())
 		os.Exit(1)
@@ -127,7 +130,7 @@ func readAssuanFile(path string) (port int, nonce []byte, err error) {
 }
 
 func handleGPGRequest(conn net.Conn) {
-	assuan := os.Getenv("AppData") + gpgAssuanFile
+	assuan := filepath.Join(os.Getenv("AppData"), "gnupg", "S.gpg-agent")
 	port, nonce, err := readAssuanFile(assuan)
 	if err != nil {
 		fmt.Println("Error reading assuan file:", err.Error())
