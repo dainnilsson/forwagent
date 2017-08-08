@@ -9,10 +9,28 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 )
 
 func main() {
+	var host string
+	if len(os.Args) > 2 {
+		fmt.Println("Invalid command line usage!")
+		os.Exit(1)
+	} else if len(os.Args) == 2 {
+		host = os.Args[1]
+	} else {
+		host = "127.0.0.1:4711"
+	}
+	fmt.Println("Using server:", host)
+
+	usr, err := user.Current()
+	if err != nil {
+		fmt.Println("Couldn't get the current user!")
+		os.Exit(1)
+	}
+
 	fingerprint, err := common.ReadFingerprintFile(common.GetFilePath("server.pem"))
 	if err != nil {
 		fmt.Println("Error loading server cert:", err.Error())
@@ -31,7 +49,7 @@ func main() {
 		InsecureSkipVerify: true,
 	}
 
-	gpgPath := filepath.Join(common.GetHomePath(), ".gnupg", "S.gpg-agent")
+	gpgPath := filepath.Join(usr.HomeDir, ".gnupg", "S.gpg-agent")
 	os.Remove(gpgPath)
 	gpgSock, err := net.Listen("unix", gpgPath)
 	if err != nil {
@@ -46,12 +64,12 @@ func main() {
 			if err != nil {
 				fmt.Println("Error accepting:", err.Error())
 			} else {
-				go handleConnection(config, fingerprint, conn, "GPG")
+				go handleConnection(host, config, fingerprint, conn, "GPG")
 			}
 		}
 	}()
 
-	sshPath := path + "S.gpg-agent.ssh"
+	sshPath := filepath.Join(usr.HomeDir, ".gnupg", "S.gpg-agent.ssh")
 	os.Remove(sshPath)
 	sshSock, err := net.Listen("unix", sshPath)
 	if err != nil {
@@ -65,15 +83,15 @@ func main() {
 		if err != nil {
 			fmt.Println("Error accepting:", err.Error())
 		} else {
-			go handleConnection(config, fingerprint, conn, "SSH")
+			go handleConnection(host, config, fingerprint, conn, "SSH")
 		}
 	}
 }
 
-func handleConnection(config tls.Config, fingerprint [32]byte, client net.Conn, connType string) {
+func handleConnection(host string, config tls.Config, fingerprint [32]byte, client net.Conn, connType string) {
 	defer client.Close()
 
-	server, err := tls.Dial("tcp", "127.0.0.1:4711", &config)
+	server, err := tls.Dial("tcp", host, &config)
 	if err != nil {
 		fmt.Println("Error connecting to server:", err.Error())
 		return

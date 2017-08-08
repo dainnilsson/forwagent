@@ -17,11 +17,6 @@ import (
 	"strconv"
 )
 
-const (
-	host = "localhost"
-	port = 4711
-)
-
 func loadClients() map[[32]byte]bool {
 	fp, err := common.ReadFingerprintFile(common.GetFilePath("client.pem"))
 	if err != nil {
@@ -63,13 +58,22 @@ func main() {
 		VerifyPeerCertificate: authenticateFps(loadClients()),
 	}
 
-	l, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", host, port), &config)
+	var host string
+	if len(os.Args) > 2 {
+		fmt.Println("Invalid command line usage!")
+		os.Exit(1)
+	} else if len(os.Args) == 2 {
+		host = os.Args[1]
+	} else {
+		host = "127.0.0.1:4711"
+	}
+	l, err := tls.Listen("tcp", host, &config)
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
-	fmt.Println("Listening on", host, port)
+	fmt.Println("Listening on:", host)
 
 	for {
 		conn, err := l.Accept()
