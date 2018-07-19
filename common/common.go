@@ -1,37 +1,35 @@
 package common
 
-import "crypto/sha256"
-import "crypto/x509"
-import "encoding/pem"
-import "fmt"
-import "io/ioutil"
-import "os"
-import "os/user"
-import "path/filepath"
+import (
+	"bufio"
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"github.com/flynn/noise"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"path/filepath"
+)
 
-func ReadFingerprintFile(path string) (fp [32]byte, err error) {
-	certPem, err := ioutil.ReadFile(path)
+func generateKeyPair(privateFName string, publicFName string) (private []byte, public []byte, err error) {
+	keys, err := noise.DH25519.GenerateKeypair(rand.Reader)
 	if err != nil {
 		return
 	}
-	blk, _ := pem.Decode(certPem)
-	return ReadFingerprint(blk.Bytes)
+	err = ioutil.WriteFile(privateFName, keys.Private, 0600)
+	if err != nil {
+		return
+	}
+	err = ioutil.WriteFile(publicFName, keys.Public, 0600)
+	if err != nil {
+		return
+	}
+
+	return keys.Private, keys.Public, nil
 }
 
-func ReadFingerprint(derBytes []byte) (fp [32]byte, err error) {
-	cert, err := x509.ParseCertificate(derBytes)
-	if err != nil {
-		return
-	}
-	key, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	if err != nil {
-		return
-	}
-	fp = sha256.Sum256(key)
-	return
-}
-
-func GetHomePath() string {
+func getHomePath() string {
 	usr, err := user.Current()
 	if err != nil {
 		fmt.Println("Couldn't get the current user!")
@@ -42,6 +40,39 @@ func GetHomePath() string {
 	return pth
 }
 
-func GetFilePath(name string) string {
-	return filepath.Join(GetHomePath(), name)
+func getFilePath(name string) string {
+	return filepath.Join(getHomePath(), name)
+}
+
+func ReadKeyList(name string) (keys [][]byte, err error) {
+	keysFile := getFilePath(name + ".allowed")
+	file, err := os.Open(keysFile)
+	defer file.Close()
+	if err != nil {
+		return keys, nil
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		key, err := base64.StdEncoding.DecodeString(scanner.Text())
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return
+}
+
+func GetKeyPair(name string) (private []byte, public []byte, err error) {
+	privateFile := getFilePath(name + ".priv")
+	publicFile := getFilePath(name + ".pub")
+
+	private, err = ioutil.ReadFile(privateFile)
+	if err != nil {
+		fmt.Println("Error loading private key, generating...")
+		return generateKeyPair(privateFile, publicFile)
+	}
+
+	public, err = ioutil.ReadFile(publicFile)
+	return
 }

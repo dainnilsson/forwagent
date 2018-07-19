@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/dainnilsson/forwagent/common"
 	"github.com/davidmz/go-pageant"
+	"github.com/flynn/noise"
+	"github.com/go-noisesocket/noisesocket"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
 	"io/ioutil"
@@ -17,45 +18,16 @@ import (
 	"strconv"
 )
 
-func loadClients() map[[32]byte]bool {
-	fp, err := common.ReadFingerprintFile(common.GetFilePath("client.pem"))
-	if err != nil {
-		fmt.Println("Error reading cert fingerprint:", err.Error())
-		return nil
-	}
-
-	return map[[32]byte]bool{
-		fp: true,
-	}
-}
-
-func authenticateFps(fingerprints map[[32]byte]bool) func([][]byte, [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
-		fp, err := common.ReadFingerprint(rawCerts[0])
-		if err != nil {
-			return
-		}
-		if !fingerprints[fp] {
-			err = errors.New("Unknown client key")
-		}
-		return
-	}
-}
-
 func main() {
-	cert, err := tls.LoadX509KeyPair(
-		common.GetFilePath("server.pem"),
-		common.GetFilePath("server.key"),
-	)
+	priv, pub, err := common.GetKeyPair("server")
 	if err != nil {
-		fmt.Println("Error loading cert:", err.Error())
+		fmt.Println("Couldn't read or generate key pair!", err.Error())
 		os.Exit(1)
 	}
-	config := tls.Config{
-		Certificates:          []tls.Certificate{cert},
-		ClientAuth:            tls.RequireAnyClientCert,
-		InsecureSkipVerify:    true,
-		VerifyPeerCertificate: authenticateFps(loadClients()),
+
+	serverKeys := noise.DHKey{
+		Public:  pub,
+		Private: priv,
 	}
 
 	var host string
@@ -67,16 +39,22 @@ func main() {
 	} else {
 		host = "127.0.0.1:4711"
 	}
-	l, err := tls.Listen("tcp", host, &config)
+
+	l, err := noisesocket.Listen(host, &noisesocket.ConnectionConfig{
+		StaticKey:      serverKeys,
+		VerifyCallback: verifyCallback,
+	})
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
 	fmt.Println("Listening on:", host)
+	fmt.Println("Server key:", base64.StdEncoding.EncodeToString(pub))
 
 	for {
 		conn, err := l.Accept()
+
 		if err != nil {
 			fmt.Println("Error accepting:", err.Error())
 		} else {
@@ -106,6 +84,26 @@ func handleRequest(conn net.Conn) {
 		fmt.Println("Invalid session type:", r)
 		return
 	}
+}
+
+func verifyCallback(publicKey []byte, data []byte) error {
+	if len(publicKey) == 0 {
+		return nil
+	}
+	keys, err := common.ReadKeyList("clients")
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if bytes.Equal(key, publicKey) {
+			return nil
+		}
+	}
+	publicB64 := base64.StdEncoding.EncodeToString(publicKey)
+	fmt.Println("Unknown client key:" + publicB64)
+	fmt.Println("To allow:")
+	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/clients.allowed\n")
+	return errors.New("Connection refused, unauthorized public key: " + publicB64)
 }
 
 func handleSSHRequest(conn net.Conn) {

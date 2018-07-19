@@ -1,11 +1,13 @@
 package main
 
 import (
-	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
+	"bytes"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/dainnilsson/forwagent/common"
+	"github.com/flynn/noise"
+	"github.com/go-noisesocket/noisesocket"
 	"io"
 	"net"
 	"os"
@@ -14,6 +16,17 @@ import (
 )
 
 func main() {
+	priv, pub, err := common.GetKeyPair("client")
+	if err != nil {
+		fmt.Println("Couldn't read or generate key pair!", err.Error())
+		os.Exit(1)
+	}
+
+	clientKeys := noise.DHKey{
+		Public:  pub,
+		Private: priv,
+	}
+
 	var host string
 	if len(os.Args) > 2 {
 		fmt.Println("Invalid command line usage!")
@@ -24,29 +37,17 @@ func main() {
 		host = "127.0.0.1:4711"
 	}
 	fmt.Println("Using server:", host)
+	fmt.Println("Client key:", base64.StdEncoding.EncodeToString(pub))
+
+	config := noisesocket.ConnectionConfig{
+		StaticKey:      clientKeys,
+		VerifyCallback: verifyCallback,
+	}
 
 	usr, err := user.Current()
 	if err != nil {
 		fmt.Println("Couldn't get the current user!")
 		os.Exit(1)
-	}
-
-	fingerprint, err := common.ReadFingerprintFile(common.GetFilePath("server.pem"))
-	if err != nil {
-		fmt.Println("Error loading server cert:", err.Error())
-		os.Exit(1)
-	}
-	cert, err := tls.LoadX509KeyPair(
-		common.GetFilePath("client.pem"),
-		common.GetFilePath("client.key"),
-	)
-	if err != nil {
-		fmt.Println("Error loading cert:", err.Error())
-		os.Exit(1)
-	}
-	config := tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		InsecureSkipVerify: true,
 	}
 
 	gpgPath := filepath.Join(usr.HomeDir, ".gnupg", "S.gpg-agent")
@@ -64,7 +65,7 @@ func main() {
 			if err != nil {
 				fmt.Println("Error accepting:", err.Error())
 			} else {
-				go handleConnection(host, config, fingerprint, conn, "GPG")
+				go handleConnection(host, config, conn, "GPG")
 			}
 		}
 	}()
@@ -83,29 +84,38 @@ func main() {
 		if err != nil {
 			fmt.Println("Error accepting:", err.Error())
 		} else {
-			go handleConnection(host, config, fingerprint, conn, "SSH")
+			go handleConnection(host, config, conn, "SSH")
 		}
 	}
 }
 
-func handleConnection(host string, config tls.Config, fingerprint [32]byte, client net.Conn, connType string) {
+func verifyCallback(publicKey []byte, data []byte) error {
+	// Returning an error doesn't seem to have any effect :(
+	keys, err := common.ReadKeyList("servers")
+	if err != nil {
+		panic(err.Error())
+		return err
+	}
+	for _, key := range keys {
+		if bytes.Equal(key, publicKey) {
+			return nil
+		}
+	}
+
+	publicB64 := base64.StdEncoding.EncodeToString(publicKey)
+	fmt.Println("Unknown server key:" + publicB64)
+	fmt.Println("To allow:")
+	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/servers.allowed\n")
+	panic("Connection closed, unknown public key.")
+	return errors.New("Connection closed, unknown public key.")
+}
+
+func handleConnection(host string, config noisesocket.ConnectionConfig, client net.Conn, connType string) {
 	defer client.Close()
 
-	server, err := tls.Dial("tcp", host, &config)
+	server, err := noisesocket.Dial(host, &config)
 	if err != nil {
 		fmt.Println("Error connecting to server:", err.Error())
-		return
-	}
-	state := server.ConnectionState()
-	cert := state.PeerCertificates[0]
-	pkDer, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	if err != nil {
-		fmt.Println("Error serializing public key:", err.Error())
-		return
-	}
-	fpCompare := sha256.Sum256(pkDer)
-	if fingerprint != fpCompare {
-		fmt.Println("Server has wrong public key:", fpCompare)
 		return
 	}
 
