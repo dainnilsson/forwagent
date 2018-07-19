@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"forwagent/common"
+	"github.com/dainnilsson/forwagent/common"
 	"io"
 	"net"
 	"os"

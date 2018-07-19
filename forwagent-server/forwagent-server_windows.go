@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"forwagent/common"
+	"github.com/dainnilsson/forwagent/common"
 	"github.com/davidmz/go-pageant"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
