@@ -90,10 +90,8 @@ func main() {
 }
 
 func verifyCallback(publicKey []byte, data []byte) error {
-	// Returning an error doesn't seem to have any effect :(
 	keys, err := common.ReadKeyList("servers")
 	if err != nil {
-		panic(err.Error())
 		return err
 	}
 	for _, key := range keys {
@@ -106,7 +104,6 @@ func verifyCallback(publicKey []byte, data []byte) error {
 	fmt.Println("Unknown server key:" + publicB64)
 	fmt.Println("To allow:")
 	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/servers.allowed\n")
-	panic("Connection closed, unknown public key.")
 	return errors.New("Connection closed, unknown public key.")
 }
 
