@@ -82,7 +82,6 @@ func handleRequest(conn net.Conn) {
 		handleGPGRequest(conn)
 	} else {
 		fmt.Println("Invalid session type:", r)
-		return
 	}
 }
 
@@ -140,20 +139,20 @@ func handleGPGRequest(conn net.Conn) {
 	port, nonce, err := readAssuanFile(assuan)
 	if err != nil {
 		fmt.Println("Error reading assuan file:", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	assuanConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Println("Error connecting to assuan socket:", err.Error())
-		os.Exit(1)
+		return
 	}
 	defer assuanConn.Close()
 
 	_, err = assuanConn.Write(nonce)
 	if err != nil {
 		fmt.Println("Error writing nonce:", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	// Forward between connections
