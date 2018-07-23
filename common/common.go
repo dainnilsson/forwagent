@@ -29,23 +29,23 @@ func generateKeyPair(privateFName string, publicFName string) (private []byte, p
 	return keys.Private, keys.Public, nil
 }
 
-func getHomePath() string {
+func GetHomeDir() string {
 	usr, err := user.Current()
 	if err != nil {
 		fmt.Println("Couldn't get the current user!")
 		os.Exit(1)
 	}
-	pth := filepath.Join(usr.HomeDir, ".forwagent")
-	os.MkdirAll(pth, os.ModePerm)
-	return pth
+	return usr.HomeDir
 }
 
-func getFilePath(name string) string {
-	return filepath.Join(getHomePath(), name)
+func getConfigFile(name string) string {
+	pth := filepath.Join(GetHomeDir(), ".forwagent")
+	os.MkdirAll(pth, os.ModePerm)
+	return filepath.Join(pth, name)
 }
 
 func ReadKeyList(name string) (keys [][]byte, err error) {
-	keysFile := getFilePath(name + ".allowed")
+	keysFile := getConfigFile(name + ".allowed")
 	file, err := os.Open(keysFile)
 	defer file.Close()
 	if err != nil {
@@ -64,8 +64,8 @@ func ReadKeyList(name string) (keys [][]byte, err error) {
 }
 
 func GetKeyPair(name string) (private []byte, public []byte, err error) {
-	privateFile := getFilePath(name + ".priv")
-	publicFile := getFilePath(name + ".pub")
+	privateFile := getConfigFile(name + ".priv")
+	publicFile := getConfigFile(name + ".pub")
 
 	private, err = ioutil.ReadFile(privateFile)
 	if err != nil {

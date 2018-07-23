@@ -11,7 +11,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/user"
 	"path/filepath"
 )
 
@@ -44,13 +43,7 @@ func main() {
 		VerifyCallback: verifyCallback,
 	}
 
-	usr, err := user.Current()
-	if err != nil {
-		fmt.Println("Couldn't get the current user!")
-		os.Exit(1)
-	}
-
-	gpgPath := filepath.Join(usr.HomeDir, ".gnupg", "S.gpg-agent")
+	gpgPath := filepath.Join(common.GetHomeDir(), ".gnupg", "S.gpg-agent")
 	os.Remove(gpgPath)
 	gpgSock, err := net.Listen("unix", gpgPath)
 	if err != nil {
@@ -70,7 +63,7 @@ func main() {
 		}
 	}()
 
-	sshPath := filepath.Join(usr.HomeDir, ".gnupg", "S.gpg-agent.ssh")
+	sshPath := filepath.Join(common.GetHomeDir(), ".gnupg", "S.gpg-agent.ssh")
 	os.Remove(sshPath)
 	sshSock, err := net.Listen("unix", sshPath)
 	if err != nil {
@@ -101,7 +94,7 @@ func verifyCallback(publicKey []byte, data []byte) error {
 	}
 
 	publicB64 := base64.StdEncoding.EncodeToString(publicKey)
-	fmt.Println("Unknown server key:" + publicB64)
+	fmt.Println("Unknown server key:", publicB64)
 	fmt.Println("To allow:")
 	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/servers.allowed\n")
 	return errors.New("Connection closed, unknown public key.")
@@ -115,11 +108,11 @@ func handleConnection(host string, config noisesocket.ConnectionConfig, client n
 		fmt.Println("Error connecting to server:", err.Error())
 		return
 	}
+	defer server.Close()
 
 	io.WriteString(server, connType)
 
 	go func() {
-		defer server.Close()
 		_, err := io.Copy(server, client)
 		if err != nil {
 			fmt.Println("Error forwarding server -> client:", err.Error())

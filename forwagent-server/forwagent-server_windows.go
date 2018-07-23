@@ -112,7 +112,11 @@ func handleSSHRequest(conn net.Conn) {
 		fmt.Println("Pageant not available!")
 		return
 	}
-	agent.ServeAgent(pageant.New(), conn)
+	err := agent.ServeAgent(pageant.New(), conn)
+	if err != nil && err.Error() != "EOF" {
+		fmt.Println("Error serving SSH agent:", err.Error())
+		return
+	}
 }
 
 func readAssuanFile(path string) (port int, nonce []byte, err error) {
@@ -144,6 +148,7 @@ func handleGPGRequest(conn net.Conn) {
 		fmt.Println("Error connecting to assuan socket:", err.Error())
 		os.Exit(1)
 	}
+	defer assuanConn.Close()
 
 	_, err = assuanConn.Write(nonce)
 	if err != nil {
@@ -153,7 +158,6 @@ func handleGPGRequest(conn net.Conn) {
 
 	// Forward between connections
 	go func() {
-		defer assuanConn.Close()
 		_, err := io.Copy(assuanConn, conn)
 		if err != nil {
 			fmt.Println("Error forwarding server -> client:", err.Error())
