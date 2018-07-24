@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 )
@@ -105,12 +106,24 @@ func verifyCallback(publicKey []byte, data []byte) error {
 	return errors.New("Connection refused, unauthorized public key: " + publicB64)
 }
 
+func startGpgAgent() error {
+	fmt.Println("Connect to gpg-agent...")
+	cmd := exec.Command("gpg-connect-agent.exe", "/bye")
+	return cmd.Run()
+}
+
 func handleSSHRequest(conn net.Conn) {
-	avail := pageant.Available()
-	if !avail {
-		fmt.Println("Pageant not available!")
-		return
+	if !pageant.Available() {
+		if err := startGpgAgent(); err != nil {
+			fmt.Println("Couldn't start gpg-agent:", err.Error())
+			return
+		}
+		if !pageant.Available() {
+			fmt.Println("Pageant not available!")
+			return
+		}
 	}
+
 	err := agent.ServeAgent(pageant.New(), conn)
 	if err != nil && err.Error() != "EOF" {
 		fmt.Println("Error serving SSH agent:", err.Error())
@@ -119,6 +132,12 @@ func handleSSHRequest(conn net.Conn) {
 }
 
 func readAssuanFile(path string) (port int, nonce []byte, err error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err = startGpgAgent(); err != nil {
+			return 0, nil, err
+		}
+	}
+
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return
@@ -147,7 +166,6 @@ func handleGPGRequest(conn net.Conn) {
 		fmt.Println("Error connecting to assuan socket:", err.Error())
 		return
 	}
-	defer assuanConn.Close()
 
 	_, err = assuanConn.Write(nonce)
 	if err != nil {
@@ -157,6 +175,7 @@ func handleGPGRequest(conn net.Conn) {
 
 	// Forward between connections
 	go func() {
+		defer assuanConn.Close()
 		_, err := io.Copy(assuanConn, conn)
 		if err != nil {
 			fmt.Println("Error forwarding server -> client:", err.Error())

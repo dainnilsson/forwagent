@@ -108,11 +108,11 @@ func handleConnection(host string, config noisesocket.ConnectionConfig, client n
 		fmt.Println("Error connecting to server:", err.Error())
 		return
 	}
-	defer server.Close()
 
 	io.WriteString(server, connType)
 
 	go func() {
+		defer server.Close()
 		_, err := io.Copy(server, client)
 		if err != nil {
 			fmt.Println("Error forwarding server -> client:", err.Error())
