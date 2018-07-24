@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 )
 
-func generateKeyPair(privateFName string, publicFName string) (private []byte, public []byte, err error) {
-	keys, err := noise.DH25519.GenerateKeypair(rand.Reader)
+func generateKeyPair(privateFName string, publicFName string) (keys noise.DHKey, err error) {
+	keys, err = noise.DH25519.GenerateKeypair(rand.Reader)
 	if err != nil {
 		return
 	}
@@ -22,11 +22,7 @@ func generateKeyPair(privateFName string, publicFName string) (private []byte, p
 		return
 	}
 	err = ioutil.WriteFile(publicFName, keys.Public, 0600)
-	if err != nil {
-		return
-	}
-
-	return keys.Private, keys.Public, nil
+	return
 }
 
 func GetHomeDir() string {
@@ -63,16 +59,21 @@ func ReadKeyList(name string) (keys [][]byte, err error) {
 	return
 }
 
-func GetKeyPair(name string) (private []byte, public []byte, err error) {
+func GetKeyPair(name string) (keys noise.DHKey, err error) {
 	privateFile := getConfigFile(name + ".priv")
 	publicFile := getConfigFile(name + ".pub")
 
-	private, err = ioutil.ReadFile(privateFile)
+	private, err := ioutil.ReadFile(privateFile)
 	if err != nil {
 		fmt.Println("Error loading private key, generating...")
 		return generateKeyPair(privateFile, publicFile)
 	}
 
-	public, err = ioutil.ReadFile(publicFile)
+	public, err := ioutil.ReadFile(publicFile)
+
+	keys = noise.DHKey{
+		Public:  public,
+		Private: private,
+	}
 	return
 }

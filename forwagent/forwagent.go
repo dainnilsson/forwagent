@@ -6,24 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dainnilsson/forwagent/common"
-	"github.com/flynn/noise"
 	"github.com/go-noisesocket/noisesocket"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
-	priv, pub, err := common.GetKeyPair("client")
+	keys, err := common.GetKeyPair("client")
 	if err != nil {
 		fmt.Println("Couldn't read or generate key pair!", err.Error())
 		os.Exit(1)
-	}
-
-	clientKeys := noise.DHKey{
-		Public:  pub,
-		Private: priv,
 	}
 
 	var host string
@@ -36,10 +31,10 @@ func main() {
 		host = "127.0.0.1:4711"
 	}
 	fmt.Println("Using server:", host)
-	fmt.Println("Client key:", base64.StdEncoding.EncodeToString(pub))
+	fmt.Println("Client key:", base64.StdEncoding.EncodeToString(keys.Public))
 
 	config := noisesocket.ConnectionConfig{
-		StaticKey:      clientKeys,
+		StaticKey:      keys,
 		VerifyCallback: verifyCallback,
 	}
 
@@ -120,7 +115,7 @@ func handleConnection(host string, config noisesocket.ConnectionConfig, client n
 	}()
 
 	_, err = io.Copy(client, server)
-	if err != nil {
+	if err != nil && !strings.HasSuffix(err.Error(), "closed network connection") {
 		fmt.Println("Error forwarding client -> server:", err.Error())
 	}
 }

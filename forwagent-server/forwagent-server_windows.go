@@ -17,20 +17,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 func main() {
-	priv, pub, err := common.GetKeyPair("server")
-	if err != nil {
-		fmt.Println("Couldn't read or generate key pair!", err.Error())
-		os.Exit(1)
-	}
-
-	serverKeys := noise.DHKey{
-		Public:  pub,
-		Private: priv,
-	}
-
 	var host string
 	if len(os.Args) > 2 {
 		fmt.Println("Invalid command line usage!")
@@ -41,17 +31,30 @@ func main() {
 		host = "127.0.0.1:4711"
 	}
 
+	keys, err := common.GetKeyPair("server")
+	if err != nil {
+		fmt.Println("Couldn't read or generate key pair:", err)
+		os.Exit(1)
+	}
+
+	err = run(host, keys)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func run(host string, keys noise.DHKey) error {
 	l, err := noisesocket.Listen(host, &noisesocket.ConnectionConfig{
-		StaticKey:      serverKeys,
+		StaticKey:      keys,
 		VerifyCallback: verifyCallback,
 	})
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
+		return fmt.Errorf("Error listening: %s", err)
 	}
 	defer l.Close()
 	fmt.Println("Listening on:", host)
-	fmt.Println("Server key:", base64.StdEncoding.EncodeToString(pub))
+	fmt.Println("Server key:", base64.StdEncoding.EncodeToString(keys.Public))
 
 	for {
 		conn, err := l.Accept()
@@ -183,7 +186,7 @@ func handleGPGRequest(conn net.Conn) {
 	}()
 
 	_, err = io.Copy(conn, assuanConn)
-	if err != nil {
+	if err != nil && !strings.HasSuffix(err.Error(), "closed network connection") {
 		fmt.Println("Error forwarding client -> server:", err.Error())
 	}
 }
