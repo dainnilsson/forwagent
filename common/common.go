@@ -6,10 +6,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/flynn/noise"
+	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 )
 
 func generateKeyPair(privateFName string, publicFName string) (keys noise.DHKey, err error) {
@@ -76,4 +79,19 @@ func GetKeyPair(name string) (keys noise.DHKey, err error) {
 		Private: private,
 	}
 	return
+}
+
+func ProxyConnections(clientConn net.Conn, serverConn net.Conn) {
+	go func() {
+		defer serverConn.Close()
+		_, err := io.Copy(serverConn, clientConn)
+		if err != nil {
+			fmt.Println("Error forwarding server -> client:", err.Error())
+		}
+	}()
+
+	_, err := io.Copy(clientConn, serverConn)
+	if err != nil && !strings.HasSuffix(err.Error(), "closed network connection") {
+		fmt.Println("Error forwarding client -> server:", err.Error())
+	}
 }

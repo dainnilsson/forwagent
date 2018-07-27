@@ -7,12 +7,27 @@ import (
 	"fmt"
 	"github.com/dainnilsson/forwagent/common"
 	"github.com/go-noisesocket/noisesocket"
-	"io"
 	"net"
 	"os"
-	"path/filepath"
-	"strings"
 )
+
+func verifyCallback(publicKey []byte, data []byte) error {
+	keys, err := common.ReadKeyList("servers")
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if bytes.Equal(key, publicKey) {
+			return nil
+		}
+	}
+
+	publicB64 := base64.StdEncoding.EncodeToString(publicKey)
+	fmt.Println("Unknown server key:", publicB64)
+	fmt.Println("To allow:")
+	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/servers.allowed\n")
+	return errors.New("Connection closed, unknown public key.")
+}
 
 func main() {
 	keys, err := common.GetKeyPair("client")
@@ -38,84 +53,11 @@ func main() {
 		VerifyCallback: verifyCallback,
 	}
 
-	gpgPath := filepath.Join(common.GetHomeDir(), ".gnupg", "S.gpg-agent")
-	os.Remove(gpgPath)
-	gpgSock, err := net.Listen("unix", gpgPath)
+	err = runClient(func() (net.Conn, error) {
+		return noisesocket.Dial(host, &config)
+	})
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
+		fmt.Println("Couldn't start client:", err.Error())
 		os.Exit(1)
-	}
-
-	go func() {
-		defer gpgSock.Close()
-		for {
-			conn, err := gpgSock.Accept()
-			if err != nil {
-				fmt.Println("Error accepting:", err.Error())
-			} else {
-				go handleConnection(host, config, conn, "GPG")
-			}
-		}
-	}()
-
-	sshPath := filepath.Join(common.GetHomeDir(), ".gnupg", "S.gpg-agent.ssh")
-	os.Remove(sshPath)
-	sshSock, err := net.Listen("unix", sshPath)
-	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
-	}
-
-	defer sshSock.Close()
-	for {
-		conn, err := sshSock.Accept()
-		if err != nil {
-			fmt.Println("Error accepting:", err.Error())
-		} else {
-			go handleConnection(host, config, conn, "SSH")
-		}
-	}
-}
-
-func verifyCallback(publicKey []byte, data []byte) error {
-	keys, err := common.ReadKeyList("servers")
-	if err != nil {
-		return err
-	}
-	for _, key := range keys {
-		if bytes.Equal(key, publicKey) {
-			return nil
-		}
-	}
-
-	publicB64 := base64.StdEncoding.EncodeToString(publicKey)
-	fmt.Println("Unknown server key:", publicB64)
-	fmt.Println("To allow:")
-	fmt.Println("\necho '" + publicB64 + "' >> ~/.forwagent/servers.allowed\n")
-	return errors.New("Connection closed, unknown public key.")
-}
-
-func handleConnection(host string, config noisesocket.ConnectionConfig, client net.Conn, connType string) {
-	defer client.Close()
-
-	server, err := noisesocket.Dial(host, &config)
-	if err != nil {
-		fmt.Println("Error connecting to server:", err.Error())
-		return
-	}
-
-	io.WriteString(server, connType)
-
-	go func() {
-		defer server.Close()
-		_, err := io.Copy(server, client)
-		if err != nil {
-			fmt.Println("Error forwarding server -> client:", err.Error())
-		}
-	}()
-
-	_, err = io.Copy(client, server)
-	if err != nil && !strings.HasSuffix(err.Error(), "closed network connection") {
-		fmt.Println("Error forwarding client -> server:", err.Error())
 	}
 }
