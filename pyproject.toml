@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "forwagent"
+version = "0.1.0"
+description = "GPG/SSH agent forwarder."
+authors = ["Dain Nilsson <dain@yubico.com>"]
+license = "Apache 2.0"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+cryptography = {version = "^3.3.1", optional = true}
+paramiko = {version = "^2.7.2", optional = true}
+
+[tool.poetry.extras]
+server = ["paramiko"]
+init = ["cryptography"]
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+forwagent = "forwagent.cli:main"
