@@ -52,5 +52,6 @@ def init():
         print("Creating empty CA bundle:", TRUSTED)
         with open(TRUSTED, "wb") as f:
             f.write(b"")
+        print("You will need to add at least 1 certificate to this file.")
 
-    print("setup complete")
+    print("Setup complete.")
