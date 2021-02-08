@@ -8,32 +8,65 @@ tested on Ubuntu, but might work on other distros.
 
 NOTE: This project should be considered experimental, and is provided as-is.
 
+NOTE: This project was initially written in Go. The old code can be found in
+the git history.
+
+
 ## Quick setup
-Both client and server need to have GnuPG installed, and their versions must be
-close to ensure compatbility of the gpg-agent protocol.
+Both client and server need to have GnuPG installed, and their versions should
+be close to ensure compatbility of the gpg-agent protocol.
+
+You can use `pip` (or an alternative, like `pipx`) to install `forwagent`. The
+package defines two "extras" which are needed to run the server, and to
+initialize the configuration.
+
+To install for running as a server (or client):
+
+  $ pip install forwagent[server]
+
+To install for running as a client, with the ability to initialize
+configuration:
+
+  $ pip install forwagent[init]
+
+To install for running as a client, with no dependencies (with existing
+configuration):
+
+  $ pip install forwagent
+
 
 ### Server setup (Windows)
 * The users private key should be usable from Windows.
 * The `gpg-connect-agent.exe` executable should be in the users `PATH`.
 * The `gpg-agent.conf` should have `enable-putty-support`.
 
-Run the `forwagent-server.exe` executable to start the server. On first run,
-this will generate a server key pair, and display the public portion. This is
-the servers public key, save it somewhere (it's displayed each time you run the
-server). By default the server runs on `127.0.0.1:4711`, but this can be set by
-providing an IP:PORT string as an argument to the executable.
+Initialize the configuration by running `forwagent init`. This will create a
+`.forwagent/` directory in your users $HOME, and a self-signed certificate
+which will be used in the files `key.pem` and `cert.pem`. An empty
+`trusted.pem` file will be created for adding trusted client certificates.
+
+You will need to add client certificates to the `trusted.pem` file before the
+server will accept connections. If any of the files in `.forwagent/` are changed,
+the server will need to be restarted for those changes to take effect.
+
+Run `forwagent server` to start the server. By default the server runs on
+`127.0.0.1:4711`, but this can be set by providing the --interface and --port
+arguments when running.
 
 You'll most likely want to automate the startup of the server so that it runs
 each time the computer starts. See the files in `doc/` for suggestions on how
 to do this.
 
+
 ### Client setup (Ubuntu)
-Run the `forwagent` binary to start the client. On first run, this will
-generate a client key pair, and display the public portion. This is the clients
-public key, which needs to be added to the server to allow connections. By
-default, the client will attempt to connect to a server on `127.0.0.1:4711`,
-but this can be configured by providing an IP:PORT string as an argument to the
-executable.
+Initialize the configuration by running `forwagent init`. This will create a
+`.forwagent/` directory in your users $HOME, and a self-signed certificate
+which will be used in the files `key.pem` and `cert.pem`. An empty
+`trusted.pem` file will be created for adding the servers certificate.
+
+Run `forwagent agent` to start the client. By default the client will connect
+to a server running on `127.0.0.1:4711`, but this can be set by providing the
+--interface and --port arguments when running.
 
 When the client is run, two unix domain socket files are created in
 `~/.gnupg/`, named `S.gpg-agent` and `S.gpg-agent.ssh`. These can be used by
@@ -46,18 +79,14 @@ You'll most likely want to automate the startup of the client so that it runs
 each time the computer starts. See the files in `doc/` for suggestions on how
 to do this.
 
+
 ### Authentication (client and server)
-With both server and client set up, you should have public keys for each of
-them. You should also have a directory named `.forwagent` in the users home
-directory on both systems.
+Mutual authentication is done by using client and server X.509 certificates.
+This is done by copying the `.forwagent/cert.pem` file from the server, to the
+`.forwagent/trusted.pem` of the client, and vice versa.
+To allow multiple clients (or servers) the `trusted.pem` file can contain
+multiple certificates.
 
-In the servers `.forwagent` directory, create a file named `clients.allowed`
-and paste the client public key. To allow multiple clients, add multiple keys,
-one per line.
-
-In the clients `.forwagent` directory, create a file named `servers.allowed`
-and paste the servers public key. To allow connecting to multiple servers
-(though not more than one at a time), add multiple keys, one per line.
 
 ### Usage
 Once set up, you should be able to run `gpg` commands on the client machine,
