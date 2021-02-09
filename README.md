@@ -22,17 +22,17 @@ initialize the configuration.
 
 To install for running as a server (or client):
 
-  $ pip install forwagent[server]
+    $ pip install forwagent[server]
 
 To install for running as a client, with the ability to initialize
 configuration:
 
-  $ pip install forwagent[init]
+    $ pip install forwagent[init]
 
 To install for running as a client, with no dependencies (with existing
 configuration):
 
-  $ pip install forwagent
+    $ pip install forwagent
 
 
 ### Server setup (Windows)
@@ -73,7 +73,7 @@ When the client is run, two unix domain socket files are created in
 `gpg` and `ssh`, and will be tunneled to the sockets on the server. You'll need
 to configure SSH to use the socket:
 
-  $ export SSH_AUTH_SOCK="$HOME/.gnupg/S.gpg-agent.ssh"
+    $ export SSH_AUTH_SOCK="$HOME/.gnupg/S.gpg-agent.ssh"
 
 You'll most likely want to automate the startup of the client so that it runs
 each time the computer starts. See the files in `doc/` for suggestions on how
@@ -97,7 +97,7 @@ to add your public key to it.
 You should also be able to list your GPG authentication key under SSH by
 running:
 
-  $ ssh-add -L
+    $ ssh-add -L
 
 And the `ssh` command should pick it up and use it automatically.
 
