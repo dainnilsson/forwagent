@@ -28,7 +28,7 @@ def get_ssh_agent():
     agent = paramiko.Agent()
     conn = agent._conn
     if conn is None:
-        logging.error("No SSH agent available")
+        logger.error("No SSH agent available")
     return conn
 
 

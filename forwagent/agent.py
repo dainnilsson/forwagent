@@ -19,6 +19,7 @@ def main(server_addr):
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.load_verify_locations(TRUSTED)
     context.load_cert_chain(CERT, KEY)
+    context.check_hostname = False
 
     def forward_to(b):
         return lambda a: forward(sockets, a, b)
@@ -26,11 +27,14 @@ def main(server_addr):
     def accept(preamble):
         def inner(sock):
             client, _ = sock.accept()
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            logger.debug("Client connected for %r", preamble)
-            sock.connect(server_addr)
-            server = context.wrap_socket(sock, server_hostname="localhost")
+            logger.info("Client connected for %r", preamble)
+
+            server = context.wrap_socket(
+                socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            )
+            server.connect(server_addr)
             server.sendall(preamble)
+
             sockets[client] = forward_to(server)
             sockets[server] = forward_to(client)
 

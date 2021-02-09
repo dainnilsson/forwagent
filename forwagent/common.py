@@ -7,14 +7,20 @@ TYPE_SSH = b"SSH"
 TYPE_GPG = b"GPG"
 
 
+CONF_DIR = os.path.join(os.path.expanduser("~"), ".forwagent")
+TRUSTED = os.path.join(CONF_DIR, "trusted.pem")
+KEY = os.path.join(CONF_DIR, "key.pem")
+CERT = os.path.join(CONF_DIR, "cert.pem")
+
+
 def forward(sockets, a, b):
     data = a.recv(BUF_SIZE)
     if data:
         b.sendall(data)
     else:
         for s in (a, b):
-            sockets.pop(s, None)
-            s.close()
+            if sockets.pop(s, None):
+                s.close()
 
 
 def run(sockets):
@@ -26,9 +32,3 @@ def run(sockets):
                     f(s)
                 except Exception as e:
                     print("Error", e)
-
-
-CONF_DIR = os.path.join(os.path.expanduser("~"), ".forwagent")
-TRUSTED = os.path.join(CONF_DIR, "trusted.pem")
-KEY = os.path.join(CONF_DIR, "key.pem")
-CERT = os.path.join(CONF_DIR, "cert.pem")
