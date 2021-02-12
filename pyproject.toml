@@ -3,7 +3,7 @@ name = "forwagent"
 version = "0.1.0"
 description = "GPG/SSH agent forwarder."
 authors = ["Dain Nilsson <dain@yubico.com>"]
-license = "Apache 2.0"
+license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = "^3.6"
