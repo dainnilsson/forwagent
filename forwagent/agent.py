@@ -1,4 +1,4 @@
-from .common import TYPE_SSH, TYPE_GPG, forward, run, KEY, CERT, TRUSTED
+from .common import TYPE_SSH, TYPE_GPG, forward, run, KEY, CERT, TRUSTED, get_gpg_dirs
 import socket
 import ssl
 import os
@@ -7,10 +7,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-DOMAIN_SOCKETS = {
-    "S.gpg-agent": TYPE_GPG,
-    "S.gpg-agent.ssh": TYPE_SSH,
-}
+def get_sockets():
+    dirs = get_gpg_dirs()
+    return {
+        dirs["agent-socket"]: TYPE_GPG,
+        dirs["agent-ssh-socket"]: TYPE_SSH,
+    }
 
 
 def main(server_addr):
@@ -41,12 +43,11 @@ def main(server_addr):
         return inner
 
     socket_files = []
-    for name, preamble in DOMAIN_SOCKETS.items():
+    for fname, preamble in get_sockets().items():
         s = socket.socket(
             socket.AF_UNIX,
             socket.SOCK_STREAM,
         )
-        fname = os.path.join(os.path.expanduser("~/.gnupg"), name)
         if os.path.exists(fname):
             logger.debug("Remove stale socket file: %s", fname)
             os.remove(fname)

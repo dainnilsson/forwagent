@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "forwagent"
-version = "0.1.0"
+version = "0.1.1-dev0"
 description = "GPG/SSH agent forwarder."
 authors = ["Dain Nilsson <dain@yubico.com>"]
 license = "Apache-2.0"

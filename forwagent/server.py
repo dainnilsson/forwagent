@@ -7,12 +7,12 @@ from .common import (
     KEY,
     CERT,
     TRUSTED,
+    get_gpg_dirs,
 )
 import paramiko
 import subprocess
 import socket
 import ssl
-import os
 
 import logging
 
@@ -32,10 +32,9 @@ def get_ssh_agent():
     return conn
 
 
-def get_gpg_agent():
+def get_gpg_agent(agent_socket):
     ensure_agent()
-    fpath = os.path.join(os.environ.get("AppData"), "gnupg", "S.gpg-agent")
-    with open(fpath, "rb") as f:
+    with open(agent_socket, "rb") as f:
         port, nonce = f.read().split(b"\n", 1)
     agent = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     agent.connect(("127.0.0.1", int(port)))
@@ -44,6 +43,7 @@ def get_gpg_agent():
 
 
 def main(server_addr):
+    agent_socket = get_gpg_dirs()["agent-socket"]
     sockets = {}
 
     def forward_to(b):
@@ -69,7 +69,7 @@ def main(server_addr):
             agent = get_ssh_agent()
             sockets[client] = forward_ssh(agent)
         elif data == TYPE_GPG:
-            agent = get_gpg_agent()
+            agent = get_gpg_agent(agent_socket)
             sockets[agent] = forward_to(client)
             sockets[client] = forward_to(agent)
         else:
