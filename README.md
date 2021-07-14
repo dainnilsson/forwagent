@@ -69,11 +69,12 @@ to a server running on `127.0.0.1:4711`, but this can be set by providing the
 --interface and --port arguments when running.
 
 When the client is run, two unix domain socket files are created in
-`~/.gnupg/`, named `S.gpg-agent` and `S.gpg-agent.ssh`. These can be used by
-`gpg` and `ssh`, and will be tunneled to the sockets on the server. You'll need
-to configure SSH to use the socket:
+`~/.gnupg/`, named `S.gpg-agent` and `S.gpg-agent.ssh` (the names and locations
+of these may be different, refer to the output of `gpgconf --list-dirs` for the
+paths used). These can be used by `gpg` and `ssh`, and will be tunneled to the
+sockets on the server. You'll need to configure SSH to use the socket:
 
-    $ export SSH_AUTH_SOCK="$HOME/.gnupg/S.gpg-agent.ssh"
+    $ export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
 
 You'll most likely want to automate the startup of the client so that it runs
 each time the computer starts. See the files in `doc/` for suggestions on how

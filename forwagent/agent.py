@@ -1,4 +1,4 @@
-from .common import TYPE_SSH, TYPE_GPG, forward, run, KEY, CERT, TRUSTED, get_gpg_dirs
+from .common import TYPE_SSH, TYPE_GPG, forward, run, KEY, CERT, TRUSTED, get_gpg_dir
 import socket
 import ssl
 import os
@@ -8,11 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_sockets():
-    dirs = get_gpg_dirs()
-    return {
-        dirs["agent-socket"]: TYPE_GPG,
-        dirs["agent-ssh-socket"]: TYPE_SSH,
-    }
+    return (
+        (get_gpg_dir("agent-socket"), TYPE_GPG),
+        (get_gpg_dir("agent-ssh-socket"), TYPE_SSH),
+    )
 
 
 def main(server_addr):
@@ -43,7 +42,7 @@ def main(server_addr):
         return inner
 
     socket_files = []
-    for fname, preamble in get_sockets().items():
+    for fname, preamble in get_sockets():
         s = socket.socket(
             socket.AF_UNIX,
             socket.SOCK_STREAM,

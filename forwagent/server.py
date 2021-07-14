@@ -7,7 +7,7 @@ from .common import (
     KEY,
     CERT,
     TRUSTED,
-    get_gpg_dirs,
+    get_gpg_dir,
 )
 import paramiko
 import subprocess
@@ -43,7 +43,7 @@ def get_gpg_agent(agent_socket):
 
 
 def main(server_addr):
-    agent_socket = get_gpg_dirs()["agent-socket"]
+    agent_socket = get_gpg_dir("agent-socket")
     sockets = {}
 
     def forward_to(b):

@@ -1,7 +1,6 @@
 import select
 import os
 import subprocess
-from urllib.parse import unquote
 
 
 BUF_SIZE = 4096
@@ -15,9 +14,11 @@ KEY = os.path.join(CONF_DIR, "key.pem")
 CERT = os.path.join(CONF_DIR, "cert.pem")
 
 
-def get_gpg_dirs():
-    p = subprocess.run(["gpgconf", "--list-dirs"], stdout=subprocess.PIPE, check=True)
-    return dict(line.split(":", 1) for line in unquote(p.stdout.decode()).splitlines())
+def get_gpg_dir(name):
+    p = subprocess.run(
+        ["gpgconf", "--list-dirs", name], stdout=subprocess.PIPE, check=True
+    )
+    return p.stdout.decode().strip()
 
 
 def forward(sockets, a, b):
